@@ -100,6 +100,9 @@ class MyApp(tk.Tk):
         self.color = ['red', 'yellow', 'blue', 'green', 'black', 'pink', 'aqua', 'purple']
         self.setupUI()
 
+        self.refresh_data()
+        self.mainloop()
+
     def calculate_reward(self):
         reward = np.zeros(8)
         new_energy = self.calculate_energy()
@@ -131,12 +134,13 @@ class MyApp(tk.Tk):
 
     def dynamic(self, action, order=1):
         # up, right, down, left, stay
-        action_list = np.array([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 0]])
+        action_list = np.array([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 0]]) * 10
         if order == 1:
             # 一阶模型
             self.velocity = action_list[action]
-            self.pos = self.pos + self.velocity
-            if self.pos.any() > 10:
+            if 0 < self.pos.any() < 1000:
+                self.pos = self.pos + self.velocity
+            else:
                 self.done = True
         else:
             # 二阶模型
@@ -159,35 +163,36 @@ class MyApp(tk.Tk):
         self.title("编队控制器")
         self.geometry("%dx%d+%d+%d" % (WINDOW_WIDTH, WINDOW_HEIGHT, 0.1 * SCREEN_WIDTH, 0.1 * SCREEN_HEIGHT))
         self.resizable(0, 0)
-        self.attributes('-topmost', 1, '-alpha', 1)
+        # self.attributes('-topmost', 1, '-alpha', 1)
         self["background"] = 'grey'
 
-        self.list_frame = list_frame = tk.Frame(width=640, height=540, bg='grey', relief='sunken', bd=1)
-        self.picture_show_frame = picture_show_frame = tk.Frame(width=640, height=540, bg='grey', relief='sunken', bd=1)
-        self.button_frame = button_frame = tk.Frame(width=640, height=180, bg='grey', relief='sunken', bd=1)
-        self.message_show_frame = message_show_frame = tk.Frame(width=640, height=180, bg='grey', relief='sunken', bd=1)
+        self.list_frame = list_frame = tk.Frame(width=640, height=540, bg='blue', relief='sunken', bd=2)
+        # self.picture_show_frame = picture_show_frame = tk.Frame(width=640, height=540, bg='red', relief='sunken', bd=2)
+        self.button_frame = button_frame = tk.Frame(width=640, height=180, bg='red', relief='sunken', bd=2)
+        self.message_show_frame = message_show_frame = tk.Frame(width=640, height=180, bg='green', relief='sunken',
+                                                                bd=2)
 
-        picture_show_frame.grid(row=0, column=0, padx=10, pady=10, sticky=tk.NW)
-        list_frame.grid(row=0, column=1, padx=10, pady=10, sticky=tk.NW)
-        message_show_frame.grid(row=1, column=0, padx=10, pady=10, sticky=tk.NW)
-        button_frame.grid(row=1, column=1, ipadx=30, sticky=tk.NE)
-
-        self.Canvas = tk.Canvas(picture_show_frame, width=600, height=500, bg='white')
-        self.Canvas.place(x=10, y=10)
+        list_frame.place(x=641, y=0)
+        message_show_frame.place(x=0, y=541)
+        button_frame.place(x=641, y=541)
 
         tk.Button(button_frame, width=18, height=2, text="开始/结束", bg='#336633', fg='white', font=("隶书", 12, "bold"),
-                  relief='raised', command=self.start).grid(column=7, row=0)
+                  relief='raised', command=self.start).grid(column=7, row=0, padx=10, pady=2)
+        tk.Button(button_frame, width=18, height=2, text="更新", bg='#336633', fg='white', font=("隶书", 12, "bold"),
+                  relief='raised', command=lambda: self.update_canvas(ax)).grid(column=7, row=1, padx=10, pady=2)
         tk.Button(button_frame, width=18, height=2, text="离开", bg='#336633', fg='white', font=("隶书", 12, "bold"),
-                  relief='raised', command=self.quit_sim).grid(column=7, row=1)
+                  relief='raised', command=self.quit_sim).grid(column=7, row=2, padx=10, pady=2)
+        # up, right, down, left, stay
+        action_list = np.array([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 0]])
 
         tk.Button(button_frame, width=4, height=2, text="上", bg='#336633', fg='white', font=("隶书", 12, "bold"),
-                  relief='raised', command=self.update_canvas).grid(column=1, row=0)
+                  relief='raised', command=lambda: self.dynamic(action=0)).grid(column=1, row=1, padx=10, pady=2)
         tk.Button(button_frame, width=4, height=2, text="左", bg='#336633', fg='white', font=("隶书", 12, "bold"),
-                  relief='raised', command=self.start).grid(column=0, row=0, rowspan=2)
+                  relief='raised', command=lambda: self.dynamic(action=3)).grid(column=0, row=2, padx=10, pady=2)
         tk.Button(button_frame, width=4, height=2, text="下", bg='#336633', fg='white', font=("隶书", 12, "bold"),
-                  relief='raised', command=self.start).grid(column=1, row=1)
+                  relief='raised', command=lambda: self.dynamic(action=2)).grid(column=1, row=2, padx=10, pady=2)
         tk.Button(button_frame, width=4, height=2, text="右", bg='#336633', fg='white', font=("隶书", 12, "bold"),
-                  relief='raised', command=self.start).grid(column=2, row=0, rowspan=2)
+                  relief='raised', command=lambda: self.dynamic(action=1)).grid(column=2, row=2, padx=10, pady=2)
 
         # 显示数据x,y坐标值
         tk.Label(message_show_frame, text='x:  ', bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
@@ -209,43 +214,82 @@ class MyApp(tk.Tk):
         self.chosen_agent.config(state='readonly')
         self.chosen_agent.get()
 
-    def update_canvas(self):
-        f = Figure(figsize=(6, 4), dpi=100)
-        a = f.add_subplot(111)  # 添加子图:1行1列第1个
-
-        # 生成用于绘sin图的数据
-        x = np.arange(0, 3, 0.01)
-        y = np.sin(2 * np.pi * x)
-
-        # 在前面得到的子图上绘图
-        a.plot(x, y)
+        # 在tk左上角用matplotlib画图
+        fig = Figure(figsize=(6.4, 5.4), dpi=100)
+        self.ax = ax = fig.add_subplot(111)  # 添加子图:1行1列第1个
 
         # 将绘制的图形显示到tkinter:创建属于root的canvas画布,并将图f置于画布上
-        self.Canvas = FigureCanvasTkAgg(f, master=self.picture_show_frame)
+        self.Canvas = FigureCanvasTkAgg(fig, master=self)
         self.Canvas.draw()  # 注意show方法已经过时了,这里改用draw
-        self.Canvas.get_tk_widget().pack(side=tkinter.TOP,  # 上对齐
-                                         fill=tkinter.BOTH,  # 填充方式
-                                         expand=tkinter.YES)  # 随窗口大小调整而调整
-
+        # self.Canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
+        self.Canvas.get_tk_widget().place(x=0, y=0)  # 随窗口大小调整而调整
 
         # matplotlib的导航工具栏显示上来(默认是不会显示它的)
-        toolbar = NavigationToolbar2Tk(self.Canvas, self.picture_show_frame)
-        toolbar.update()
-        self.Canvas._tkcanvas.pack(side=tkinter.TOP,  # get_tk_widget()得到的就是_tkcanvas
-                      fill=tkinter.BOTH,
-                      expand=tkinter.YES)
+        # toolbar = NavigationToolbar2Tk(self.Canvas, self)
+        # toolbar.update()
+        # self.Canvas._tkcanvas.pack(side=tkinter.LEFT,  # get_tk_widget()得到的就是_tkcanvas
+        #                            fill=tkinter.BOTH)
 
+        # 显示数据x,y坐标值
+        # agent 1
+        tk.Label(list_frame, text='agent  ', bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
+                 relief='sunken',
+                 width=15).grid(column=0, row=0, padx=10, pady=2)
+        # agent 1
+        tk.Label(list_frame, text='position  ', bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
+                 relief='sunken',
+                 width=15).grid(column=1, row=0, padx=10, pady=2)
+
+        self.agx = [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(),
+                    tk.StringVar(), tk.StringVar()]
+        self.agy = [tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(), tk.StringVar(),
+                    tk.StringVar(), tk.StringVar()]
+
+        for i in range(len(self.agx)):
+            self.agx[i].set(str(i))
+            self.agy[i].set(str(i))
+            tk.Label(list_frame, text='x' + str(i) + ':  ', bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
+                     relief='sunken',
+                     width=15).grid(column=0, row=2 * i + 1, padx=10, pady=2)
+            tk.Label(list_frame, text='y' + str(i) + ':  ', bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
+                     relief='sunken',
+                     width=15).grid(column=0, row=2 * i + 2, padx=10, pady=2)
+            tk.Label(list_frame, textvariable=self.agx[i], bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
+                     relief='sunken',
+                     width=15).grid(column=1, row=2 * i + 1, padx=10, pady=2)
+            tk.Label(list_frame, textvariable=self.agy[i], bg='#336633', fg='white', font=("隶书", 12, "bold"), height=1,
+                     relief='sunken',
+                     width=15).grid(column=1, row=2 * i + 2, padx=10, pady=2)
+
+    def update_canvas(self, ax):
+        self.update_flag = True
+        ax.clear()
+        x = self.pos[:, 0]
+        y = self.pos[:, 1]
+        ax.set_xlim([0, 1000])
+        ax.set_ylim([0, 1000])
+        ax.plot(x, y, 'ro')
+        self.Canvas.draw()
+
+    def refresh_data(self):
+        # 需要刷新数据的操作
+        # 代码...
+        self.update_canvas(self.ax)
+        for i in range(len(self.agx)):
+            self.agx[i].set(str(self.pos[i, 0]))
+            self.agy[i].set(str(self.pos[i, 1]))
+
+        self.after(100, self.refresh_data)  # 这里的10000单位为毫秒
 
     def start(self):
         print("start the program")
         # run()
 
-
     def quit_sim(self):
         self.destroy()
-        exit()
+        import sys
+        sys.exit()
 
 
 if __name__ == '__main__':
     Gui = MyApp()
-    Gui.mainloop()
